@@ -107,9 +107,10 @@ const MultiGame = () => {
       const canvas = canvasRef.current;
       if (!canvas) return;
 
+      const rect = canvas.getBoundingClientRect();
       mousePositionRef.current = {
-        x: e.clientX,
-        y: e.clientY,
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top,
       };
     };
 
@@ -135,9 +136,8 @@ const MultiGame = () => {
       if (!playerData || !camera || !canvasRef.current) return;
 
       const canvas = canvasRef.current;
-      const rect = canvas.getBoundingClientRect();
-      const centerX = rect.left + canvas.width / 2;
-      const centerY = rect.top + canvas.height / 2;
+      const centerX = canvas.width / 2;
+      const centerY = canvas.height / 2;
 
       const dx = mousePositionRef.current.x - centerX;
       const dy = mousePositionRef.current.y - centerY;
@@ -150,15 +150,6 @@ const MultiGame = () => {
         velocityX = dx / magnitude;
         velocityY = dy / magnitude;
       }
-
-      console.log("mouse position:", mousePositionRef.current, "center:", {
-        x: centerX,
-        y: centerY,
-      });
-      console.log("direction vector:", { dx, dy }, "velocity:", {
-        velocityX,
-        velocityY,
-      });
 
       if (socketRef.current) {
         socketRef.current.emit("move", { velocityX, velocityY });
@@ -205,7 +196,6 @@ const MultiGame = () => {
       }
 
       if (velocityX !== 0 || velocityY !== 0) {
-        console.log("keyboard input:", { velocityX, velocityY });
         socketRef.current.emit("move", { velocityX, velocityY });
       }
     };

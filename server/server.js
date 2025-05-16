@@ -140,8 +140,11 @@ function respawnPlayer(player) {
 initFood();
 
 function updatePlayerPosition(player, deltaTime) {
-  player.x += player.velocityX * deltaTime;
-  player.y += player.velocityY * deltaTime;
+  const prevX = player.x;
+  const prevY = player.y;
+
+  player.x += player.velocityX * deltaTime * 100;
+  player.y += player.velocityY * deltaTime * 100;
 
   player.x = Math.max(
     player.size / 2,
@@ -152,8 +155,8 @@ function updatePlayerPosition(player, deltaTime) {
     Math.min(WORLD_SIZE - player.size / 2, player.y)
   );
 
-  // player.velocityX *= 0.97;
-  // player.velocityY *= 0.97;
+  player.velocityX *= 0.98;
+  player.velocityY *= 0.98;
 }
 
 const TICK_RATE = 50;
@@ -249,9 +252,13 @@ io.on("connection", (socket) => {
   socket.on("move", (data) => {
     const player = gameState.players[socket.id];
     if (player) {
-      const speedFactor = Math.max(0.5, 30 / player.size);
-      player.velocityX = data.velocityX * speedFactor;
-      player.velocityY = data.velocityY * speedFactor;
+      const speedFactor = Math.max(0.5, 30 / player.size) * 5;
+
+      const vx = isNaN(data.velocityX) ? 0 : data.velocityX;
+      const vy = isNaN(data.velocityY) ? 0 : data.velocityY;
+
+      player.velocityX = vx * speedFactor;
+      player.velocityY = vy * speedFactor;
     }
   });
 
