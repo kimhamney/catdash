@@ -16,7 +16,7 @@ const io = new Server(server, {
 const WORLD_SIZE = 3000;
 const FOOD_COUNT = 200;
 const FOOD_SIZE = 10;
-const MIN_PLAYER_SIZE = 30;
+const MIN_PLAYER_SIZE = 40;
 const ZOOM_FACTOR = 0.15;
 
 const gameState = {
@@ -27,18 +27,18 @@ const gameState = {
 
 function getRandomColor() {
   const colors = [
-    "#FF5733",
-    "#33FF57",
-    "#3357FF",
-    "#FF33F5",
-    "#33FFF5",
-    "#F5FF33",
-    "#FF8C33",
-    "#33FFB8",
-    "#B833FF",
-    "#FF33A1",
-    "#33A1FF",
-    "#A1FF33",
+    "#FFA6B7",
+    "#FFBC80",
+    "#FFF176",
+    "#A5F2C7",
+    "#80D8FF",
+    "#B388FF",
+    "#FF8A80",
+    "#69F0AE",
+    "#82B1FF",
+    "#F48FB1",
+    "#FFD54F",
+    "#CE93D8",
   ];
   return colors[Math.floor(Math.random() * colors.length)];
 }
@@ -252,7 +252,7 @@ io.on("connection", (socket) => {
   socket.on("move", (data) => {
     const player = gameState.players[socket.id];
     if (player) {
-      const speedFactor = Math.max(0.5, 30 / player.size) * 5;
+      const speedFactor = Math.max(0.5, 30 / player.size) * 3;
 
       const vx = isNaN(data.velocityX) ? 0 : data.velocityX;
       const vy = isNaN(data.velocityY) ? 0 : data.velocityY;

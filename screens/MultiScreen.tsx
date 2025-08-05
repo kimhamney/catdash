@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
+import SpriteManager from "./SpriteManager.js";
+import PlayerComponent from "./PlayerComponent.js";
 import { io } from "socket.io-client";
 
 const SERVER_URL = "http://localhost:3001";
@@ -20,6 +22,30 @@ const MultiGame = () => {
   const animationFrameRef = useRef(null);
   const mousePositionRef = useRef({ x: 0, y: 0 });
   const gameContainerRef = useRef(null);
+  const spriteManagerRef = useRef(null);
+  const playerComponentRef = useRef(null);
+
+  const [spritesLoaded, setSpritesLoaded] = useState(false);
+
+  useEffect(() => {
+    const initializeSprites = async () => {
+      try {
+        const spriteManager = new SpriteManager();
+        await spriteManager.loadSpriteSheet();
+
+        spriteManagerRef.current = spriteManager;
+        playerComponentRef.current = new PlayerComponent(spriteManager);
+        setSpritesLoaded(true);
+
+        console.log("Sprites loaded successfully");
+      } catch (error) {
+        console.error("Failed to load sprites:", error);
+        setSpritesLoaded(true);
+      }
+    };
+
+    initializeSprites();
+  }, []);
 
   useEffect(() => {
     const socket = io(SERVER_URL, {
@@ -166,49 +192,7 @@ const MultiGame = () => {
   }, [started, playerData, camera]);
 
   useEffect(() => {
-    if (!started || !socketRef.current) return;
-
-    const handleKeyPress = (e) => {
-      let velocityX = 0;
-      let velocityY = 0;
-
-      switch (e.key) {
-        case "ArrowUp":
-        case "w":
-        case "W":
-          velocityY = -1;
-          break;
-        case "ArrowDown":
-        case "s":
-        case "S":
-          velocityY = 1;
-          break;
-        case "ArrowLeft":
-        case "a":
-        case "A":
-          velocityX = -1;
-          break;
-        case "ArrowRight":
-        case "d":
-        case "D":
-          velocityX = 1;
-          break;
-      }
-
-      if (velocityX !== 0 || velocityY !== 0) {
-        socketRef.current.emit("move", { velocityX, velocityY });
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyPress);
-
-    return () => {
-      window.removeEventListener("keydown", handleKeyPress);
-    };
-  }, [started]);
-
-  useEffect(() => {
-    if (!started || !canvasRef.current) return;
+    if (!started || !canvasRef.current || !spritesLoaded) return;
 
     const canvas = canvasRef.current;
     const ctx = canvas.getContext("2d");
@@ -226,34 +210,6 @@ const MultiGame = () => {
 
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      const gridSize = 50;
-      const offsetX = camera.x % gridSize;
-      const offsetY = camera.y % gridSize;
-
-      ctx.beginPath();
-      ctx.strokeStyle = "#ddd";
-      ctx.lineWidth = 1;
-
-      for (let x = -offsetX; x < canvas.width; x += gridSize) {
-        ctx.moveTo(x, 0);
-        ctx.lineTo(x, canvas.height);
-      }
-
-      for (let y = -offsetY; y < canvas.height; y += gridSize) {
-        ctx.moveTo(0, y);
-        ctx.lineTo(canvas.width, y);
-      }
-
-      ctx.stroke();
-
-      const mapLeft = -camera.x * camera.zoom + canvas.width / 2;
-      const mapTop = -camera.y * camera.zoom + canvas.height / 2;
-      const mapSize = worldSize * camera.zoom;
-
-      ctx.strokeStyle = "#333";
-      ctx.lineWidth = 5;
-      ctx.strokeRect(mapLeft, mapTop, mapSize, mapSize);
-
       food.forEach((item) => {
         const foodX = (item.x - camera.x) * camera.zoom + canvas.width / 2;
         const foodY = (item.y - camera.y) * camera.zoom + canvas.height / 2;
@@ -265,69 +221,27 @@ const MultiGame = () => {
         ctx.fill();
       });
 
-      players.forEach((player) => {
-        if (player.id === playerId) return;
-
-        const playerX = (player.x - camera.x) * camera.zoom + canvas.width / 2;
-        const playerY = (player.y - camera.y) * camera.zoom + canvas.height / 2;
-        const playerSize = player.size * camera.zoom;
-
-        ctx.beginPath();
-        ctx.fillStyle = player.color;
-        ctx.arc(playerX, playerY, playerSize, 0, Math.PI * 2);
-        ctx.fill();
-
-        ctx.fillStyle = "#fff";
-        ctx.strokeStyle = "#000";
-        ctx.lineWidth = 2;
-        ctx.font = `${Math.max(12, playerSize / 3)}px Arial`;
-        ctx.textAlign = "center";
-        ctx.strokeText(player.name, playerX, playerY);
-        ctx.fillText(player.name, playerX, playerY);
-      });
-
-      const currentPlayerSize = playerData.size * camera.zoom;
-
-      ctx.beginPath();
-      ctx.fillStyle = playerData.color;
-      ctx.arc(
-        canvas.width / 2,
-        canvas.height / 2,
-        currentPlayerSize,
-        0,
-        Math.PI * 2
-      );
-      ctx.fill();
-
-      ctx.fillStyle = "#fff";
-      ctx.strokeStyle = "#000";
-      ctx.lineWidth = 2;
-      ctx.font = `${Math.max(12, currentPlayerSize / 3)}px Arial`;
-      ctx.textAlign = "center";
-      ctx.strokeText(playerName || "You", canvas.width / 2, canvas.height / 2);
-      ctx.fillText(playerName || "You", canvas.width / 2, canvas.height / 2);
-
-      ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
-      ctx.fillRect(canvas.width - 200, 10, 190, 20 + leaderboard.length * 25);
-
-      ctx.fillStyle = "#fff";
-      ctx.font = "16px Arial";
-      ctx.textAlign = "left";
-      ctx.fillText("Leaderboard", canvas.width - 180, 25);
-
-      leaderboard.forEach((leader, index) => {
-        ctx.fillText(
-          `${index + 1}. ${leader.name}: ${leader.score}`,
-          canvas.width - 180,
-          50 + index * 25
+      if (playerComponentRef.current) {
+        playerComponentRef.current.renderOtherPlayers(
+          ctx,
+          players,
+          camera,
+          canvas,
+          playerId
         );
+      }
 
-        if (leader.id === playerId) {
-          ctx.fillStyle = "rgba(255, 255, 0, 0.3)";
-          ctx.fillRect(canvas.width - 185, 35 + index * 25, 175, 20);
-          ctx.fillStyle = "#fff";
-        }
-      });
+      if (playerComponentRef.current) {
+        playerComponentRef.current.renderCurrentPlayer(
+          ctx,
+          playerData,
+          camera,
+          canvas,
+          playerName
+        );
+      }
+
+      renderLeaderboard(ctx, canvas);
 
       animationFrameRef.current = requestAnimationFrame(render);
     };
@@ -336,11 +250,13 @@ const MultiGame = () => {
 
     return () => {
       window.removeEventListener("resize", handleResize);
-      cancelAnimationFrame(animationFrameRef.current);
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
     };
   }, [
     started,
-    worldSize,
+    spritesLoaded,
     playerData,
     players,
     food,
@@ -349,6 +265,30 @@ const MultiGame = () => {
     playerId,
     playerName,
   ]);
+
+  const renderLeaderboard = (ctx, canvas) => {
+    ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
+    ctx.fillRect(canvas.width - 200, 10, 190, 20 + leaderboard.length * 25);
+
+    ctx.fillStyle = "#fff";
+    ctx.font = "16px Arial";
+    ctx.textAlign = "left";
+    ctx.fillText("Leaderboard", canvas.width - 180, 25);
+
+    leaderboard.forEach((leader, index) => {
+      ctx.fillText(
+        `${index + 1}. ${leader.name}: ${leader.score}`,
+        canvas.width - 180,
+        50 + index * 25
+      );
+
+      if (leader.id === playerId) {
+        ctx.fillStyle = "rgba(255, 255, 0, 0.3)";
+        ctx.fillRect(canvas.width - 185, 35 + index * 25, 175, 20);
+        ctx.fillStyle = "#fff";
+      }
+    });
+  };
 
   const handleStartGame = () => {
     if (!connected) return;
@@ -488,6 +428,20 @@ const MultiGame = () => {
           placeholder="Change name"
         />
       </div>
+      {!spritesLoaded && (
+        <div
+          style={{
+            position: "absolute",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            color: "#333",
+            fontSize: "18px",
+          }}
+        >
+          Loading sprites...
+        </div>
+      )}
     </div>
   );
 };
